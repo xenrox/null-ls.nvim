@@ -162,4 +162,45 @@ M.handler = function(original_params)
     })
 end
 
+M.project_diagnostics = function()
+    local method = methods.internal.PROJECT_DIAGNOSTICS
+    local params = u.make_params({}, method)
+
+    require("null-ls.generators").run_registered({
+        filetype = params.ft,
+        method = method,
+        params = params,
+        index_by_id = true,
+        postprocess = postprocess,
+        callback = function(diagnostics)
+            log:trace("received project diagnostics from generators")
+            log:trace(diagnostics)
+
+            for id, by_id in pairs(diagnostics) do
+                local diagnostics_by_bufnr = {}
+                for _, diagnostic in ipairs(by_id) do
+                    local filename = diagnostic.filename
+                    local bufnr = vim.fn.bufadd(filename)
+                    vim.fn.bufload(bufnr)
+                    vim.fn.setbufvar(bufnr, "&buflisted", 1)
+
+                    diagnostics_by_bufnr[bufnr] = diagnostics_by_bufnr[bufnr] or {}
+                    table.insert(diagnostics_by_bufnr[bufnr], diagnostic)
+                end
+
+                namespaces[id] = namespaces[id] or api.nvim_create_namespace("NULL_LS_SOURCE_" .. id)
+                for bufnr, by_bufnr in pairs(diagnostics_by_bufnr) do
+                    vim.diagnostic.set(namespaces[id], bufnr, by_bufnr)
+                end
+
+                vim.fn.setqflist(vim.diagnostic.toqflist(by_id))
+            end
+
+            if vim.tbl_count(diagnostics) > 0 then
+                vim.cmd("copen")
+            end
+        end,
+    })
+end
+
 return M
