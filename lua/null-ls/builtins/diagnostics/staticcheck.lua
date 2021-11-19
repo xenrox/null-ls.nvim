@@ -1,7 +1,7 @@
 local h = require("null-ls.helpers")
 local methods = require("null-ls.methods")
 
-local DIAGNOSTICS_ON_SAVE = methods.internal.DIAGNOSTICS_ON_SAVE
+local PROJECT_DIAGNOSTICS = methods.internal.PROJECT_DIAGNOSTICS
 
 local severities = {
     error = vim.lsp.protocol.DiagnosticSeverity.Error,
@@ -10,7 +10,7 @@ local severities = {
 }
 
 return h.make_builtin({
-    method = DIAGNOSTICS_ON_SAVE,
+    method = PROJECT_DIAGNOSTICS,
     filetypes = { "go" },
     generator_opts = {
         command = "staticcheck",
@@ -28,19 +28,17 @@ return h.make_builtin({
         end,
         on_output = function(line, params)
             local decoded = vim.fn.json_decode(line)
-            if decoded.location.file == params.bufname then
-                return {
-                    row = decoded.location.line,
-                    col = decoded.location.column,
-                    end_row = decoded["end"]["line"],
-                    end_col = decoded["end"]["culumn"],
-                    source = "staticcheck",
-                    code = decoded.code,
-                    message = decoded.message,
-                    severity = severities[decoded.severity],
-                }
-            end
-            return nil
+            return {
+                row = decoded.location.line,
+                col = decoded.location.column,
+                end_row = decoded["end"]["line"],
+                end_col = decoded["end"]["culumn"],
+                source = "staticcheck",
+                code = decoded.code,
+                message = decoded.message,
+                severity = severities[decoded.severity],
+                filename = decoded.location.file,
+            }
         end,
     },
     factory = h.generator_factory,
